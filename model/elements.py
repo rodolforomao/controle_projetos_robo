@@ -110,7 +110,7 @@ def findElementBy(driver, idElement, findBy = 0, TypeElement = 0, timeOut = 10):
 
 def encontrar_elemento_agir(driver, wait_timeout_operation, number_attempts, sleep_timeout, elem_name, value, type_method_find, type_action, element_target):
     done = False
-    repeat_operation = False
+    repeat_operation = True
     number_attempts_done = 0
     
     wait = WebDriverWait(driver, wait_timeout_operation * config.resolution_timeout)

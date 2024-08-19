@@ -12,7 +12,7 @@ def extrair_sei():
             df = pd.read_excel(file_path, sheet_name='Tabela 1')
         except Exception as e:
             print(f"Erro ao ler o arquivo: {e}")
-            return pd.DataFrame()  # Retorna um DataFrame vazio em caso de erro
+            return pd.DataFrame()
 
     if 'TERMO DE ACEITE' in df.columns:
         def extract_sei_number(text):
@@ -29,8 +29,11 @@ def extrair_sei():
 
         df['SEI Number'] = df['TERMO DE ACEITE'].apply(extract_sei_number)
 
+        df['Row Number'] = df.index + 2  # Soma 2 para ajustar ao número da linha no Excel (conta 1 para header e 1 para índice 0)
+
         filtered_df = df.dropna(subset=['SEI Number'])
 
-        return filtered_df[['TERMO DE ACEITE', 'SEI Number']]
+        print(filtered_df)
+        return filtered_df
     else:
         return pd.DataFrame()  # Retorna um DataFrame vazio se a coluna não existir

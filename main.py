@@ -16,7 +16,7 @@ while repeat:
             print('Main - COAC - Robo: Finalizado processo')
             
         except Exception as e:
-            browser_util.closeAllChromeInstances()
+            #browser_util.closeAllChromeInstances()
             print(e)
             
     except Exception as e:

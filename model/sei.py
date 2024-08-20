@@ -1,13 +1,14 @@
+from csv import excel
 import os
 import re
 import sys
 import time
 
-
-import config.config as config
+import config.config_sei as config
 
 import model.elements as elements
 import model.elements2 as elements2
+import model.excel as excel_class
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -93,22 +94,23 @@ def find_element_in_nested_iframes(driver, outer_iframe_id, inner_iframe_id, ele
 
 
 def pesquisar(driver, list_document_sei):
-    #for numero_sei in list_document_sei['SEI Number']:
+    validation_list = {}
+    
     for index, row in list_document_sei.iterrows():
         numero_sei = row['SEI Number']
         elements.sendKeys(numero_sei, driver, 'txtPesquisaRapida')
         elements.sendKeys(Keys.ENTER, driver, 'txtPesquisaRapida')
-        
         element = find_element_in_nested_iframes(driver, 'ifrVisualizacao', 'ifrArvoreHtml', 'divArvoreAcoes')
-        
         list_document_sei.at[index, 'Validado'] = bool(element)
-        
         if element:
             print('Disponível: '+ numero_sei + ' - :)')
-            downloadFile(driver, str(numero_sei) +'_linha_'+ str(index))
+            validation_list[index] = True
         else:
+            validation_list[index] = False
             print('não dipsonível: '+ numero_sei)
-            
+    
+    excel_class.realizar_validacao_excel(list_document_sei, validation_list)
+    
     return list_document_sei
 
 def findSubString(driver, page_source):

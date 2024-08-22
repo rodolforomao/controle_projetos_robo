@@ -2,7 +2,6 @@
 import controller.browser_util as browser_util
 import controller.principal as principal
 
-
 repeat = True
 
 while repeat:
@@ -16,7 +15,6 @@ while repeat:
             print('Main - COAC - Robo: Finalizado processo')
             
         except Exception as e:
-            #browser_util.closeAllChromeInstances()
             print(e)
             
     except Exception as e:

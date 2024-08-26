@@ -9,6 +9,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from config import config
 
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
 TYPE_METHOD_FIND_BY_ID = 0
 TYPE_METHOD_FIND_BY_CLASSNAME = 1
 TYPE_METHOD_FIND_BY_XPATH = 2
@@ -200,3 +202,50 @@ def wait_iframe(driver, timeout = 0.25, watchdog = 4*10):
         time.sleep(timeout* config.resolution_timeout)
         if count >= watchdog:
             break;
+
+def click_until_show(driver, id_element_1, id_element_2, max_attempts=3):
+    attempts = 0
+    
+    while attempts < max_attempts:
+        try:
+            driver.switch_to.default_content()
+            WebDriverWait(driver, 10).until(
+                EC.frame_to_be_available_and_switch_to_it((By.ID, "ifrVisualizacao"))
+            )
+            
+            if attempts > 0:
+                element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, id_element_2))
+                )
+                if "show" in element.get_attribute("class"):
+                    print("Element is now visible.")
+                    driver.switch_to.default_content()
+                    return True
+            
+            element = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.ID, id_element_1))
+            )
+            element.click()
+            print(f"Attempt {attempts + 1}: Clicked '{id_element_1}'")
+            
+            element = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, id_element_2))
+            )
+            
+            if "show" in element.get_attribute("class"):
+                print("Element is now visible.")
+                driver.switch_to.default_content()
+                return True
+            
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"Attempt {attempts + 1}: Exception occurred - {str(e)}")
+        except Exception as e:
+            print(f"Attempt {attempts + 1}: Unhandled exception - {str(e)}")
+        
+        attempts += 1
+        print(f"Attempt {attempts} failed. Retrying...")
+        time.sleep(1)
+    
+    driver.switch_to.default_content()
+    print("Failed to show the element after 3 attempts.")
+    return False

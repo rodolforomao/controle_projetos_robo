@@ -11,7 +11,6 @@ while repeat:
             
             principal.executar()           
             
-            
             print('Main - COAC - Robo: Finalizado processo')
             
         except Exception as e:

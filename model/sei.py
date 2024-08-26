@@ -58,7 +58,8 @@ def logar(driver = None):
     text = config_sei.sei_data['pwd']
     elements.sendKeys(text, driver, 'pwdSenha')
     
-    if elements2.encontrar_elemento_agir(driver, 1, 5, 1, 'sbmLogin', '', elements2.TYPE_METHOD_FIND_BY_ID
+    idElement = 'Acessar'
+    if elements2.encontrar_elemento_agir(driver, 1, 5, 1, idElement, '', elements2.TYPE_METHOD_FIND_BY_ID
                                       , elements2.TYPE_METHOD_ACTION_CLICK, None):
         return driver
 
@@ -127,8 +128,7 @@ def pesquisar(driver, list_document_sei):
             print('Disponível: '+ numero_sei + ' - :)')
             validation_list[index] = True
             if config.DOWNLOAD_sei:
-                name_file = numero_sei + '_' + str(index)
-                downloadFile(driver, name_file)
+                downloadFile(driver, numero_sei, index)
         else:
             validation_list[index] = False
             print('não dipsonível: '+ numero_sei)
@@ -163,9 +163,11 @@ def findSubString(driver, page_source):
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-def downloadFile(driver, numero_sei_and_number_row):
+def downloadFile(driver, numero_sei, index):
     max_retries = 3
     retry_count = 0
+    
+    prefix = str(index) + '_' + numero_sei + '_'
 
     download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
     target_dir = './files/sei_downloaded'
@@ -174,12 +176,8 @@ def downloadFile(driver, numero_sei_and_number_row):
     while retry_count < max_retries:
         try:
             existing_files = set(os.listdir(download_dir))
-            
-            iframe = find_element_in_nested_iframes(driver, 'ifrVisualizacao')
-            if iframe is not None:
-                driver.switch_to.frame(iframe)
                         
-            if click_printer(driver):
+            if click_printer(driver, numero_sei, prefix):
             
                 timeout = 30
                 start_time = time.time()
@@ -191,7 +189,7 @@ def downloadFile(driver, numero_sei_and_number_row):
                         new_file_name = new_files.pop() 
                         downloaded_file_path = os.path.join(download_dir, new_file_name)
                         try:
-                            target_path = os.path.join(target_dir, new_file_name)
+                            target_path = os.path.join(target_dir, prefix + new_file_name)
                             file.move(downloaded_file_path, target_path)
                             break
                         except Exception as e:
@@ -221,17 +219,67 @@ def executar(list_documento_sei):
     if driver:
         pesquisar(driver, list_documento_sei)
 
-def click_printer(driver):
+def click_printer(driver, numero_sei, prefix):
     element = None
     try:
-        element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
-            EC.element_to_be_clickable((By.XPATH, "//a[contains(@onclick, 'documento_imprimir_web') and @class='botaoSEI']/img[@class='infraCorBarraSistema']"))
+        driver.switch_to.default_content()
+        iframe = find_element_in_nested_iframes(driver, 'ifrArvore')
+        if iframe is not None:
+            driver.switch_to.frame(iframe)
+        element = WebDriverWait(driver, 1).until(
+            EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), '"+ numero_sei +"')]"))
         )
         element.click()
+        driver.switch_to.default_content()
+        element = None
+    except Exception as e:
+        print(f"Erro ao procurar o documento")
+        
+    try:
+        elements.click_until_show(driver,'ancIcones','collapseControle')
+        driver.switch_to.default_content()
+        element = None
+    except Exception as e:
+        print(f"Erro ao procurar o documento")
+
+    try:
+        driver.switch_to.default_content()
+        WebDriverWait(driver, 1).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, "ifrVisualizacao"))
+        )
+        element = WebDriverWait(driver, 1).until(
+            EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'acao=documento_imprimir_web')]"))
+        )
+        element.click()
+        driver.switch_to.default_content()
         return True
     except Exception as e:
         print(f"Procura 1 - failed")
                 
+    # if element is None:
+    #     try:
+    #             element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
+    #                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='documento_imprimir_web'] img[alt='Imprimir Web']"))
+    #             )
+    #             element.click()
+            
+    #             return True
+            
+    #     except Exception as e:
+    #         print(f"Procura 2 - failed")
+            
+    # if element is None:
+    #     try:
+    #             element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
+    #                  EC.element_to_be_clickable((By.XPATH, "//a[@href='controlador.php?acao=documento_imprimir_web&acao_origem=arvore_visualizar&id_documento=4708914&infra_sistema=100000100&infra_unidade_atual=110000130&infra_hash=332d12e08e1c47d3e9b3a10c8c670614ca900b5fd36150653a977a70d3248379']"))
+    #             )
+    #             element.click()
+            
+    #             return True
+            
+    #     except Exception as e:
+    #         print(f"Procura 4 - failed")
+            
     if element is None:
         try:
             driver.switch_to.default_content()
@@ -269,27 +317,59 @@ def click_printer(driver):
                     elapsed_time += interval
 
                 if save_as_hwnd:
+                    # download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+                    # existing_files = set(os.listdir(download_dir))
+                    # tag = 'Sa&lvar'
+                    # autoit.find_window(tag)
+                    # autoit.click_button(save_as_hwnd, tag)
+                    # checkFileDownloaded(existing_files, prefix)
+                    download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+                    existing_files = set(os.listdir(download_dir))
                     tag = 'Sa&lvar'
-                    autoit.find_window(tag)
-                    autoit.click_button(save_as_hwnd, tag)
+                    max_attempts = 3
+
+                    for attempt in range(max_attempts):
+                        autoit.find_window(tag)
+                        autoit.click_button(save_as_hwnd, tag)
+                        
+                        if checkFileDownloaded(existing_files, prefix):
+                            print("File downloaded successfully.")
+                            break
+                        else:
+                            print(f"Attempt {attempt + 1} failed. Retrying...")
+                            time.sleep(2)  # Optional: wait a bit before retrying
+                    else:
+                        print("File download failed after 3 attempts.")
+                    
             
                 return True
             
         except Exception as e:
             print(f"Procura 3 - failed - {e}")
-
-    if element is None:
-        try:
-                element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "a.botaoSEI[onclick*='documento_imprimir_web'] > img.infraCorBarraSistema"))
-                )
-                element.click()
-            
-                return True
-            
-        except Exception as e:
-            print(f"Procura 2 - failed")
-            
+        
     return False
 
 
+
+def checkFileDownloaded(existing_files, prefix):
+    timeout = 5
+    start_time = time.time()
+    download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+    target_dir = './files/sei_downloaded'
+    while True:
+        new_files = set(os.listdir(download_dir)) - existing_files
+        download_finished = checkDownloadFinished(new_files)
+        if new_files and download_finished:
+            new_file_name = new_files.pop() 
+            downloaded_file_path = os.path.join(download_dir, new_file_name)
+            try:
+                target_path = os.path.join(target_dir, prefix + new_file_name)
+                if os.path.exists(target_dir):
+                    return True
+            except Exception as e:
+                print(f"Attempt to move file again failed: {e}")
+        
+        if time.time() - start_time > timeout:
+            return False
+    
+    return False

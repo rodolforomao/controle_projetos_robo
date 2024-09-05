@@ -15,8 +15,8 @@ def clean_date_time(date_str):
         else:
             return datetime.strptime(cleaned_date, formato)
     except ValueError as e:
-        print(f"Erro: {e}")
-        if 'day is out of range for month' in str(e):
+        #Correção de data
+        if 'day is out of range for month' in str(e) + ' - Wrong date: ' + cleaned_date:
             # Se houver um erro, a data é inválida
             try:
                 dia, mes, ano = map(int, cleaned_date.split('/'))
@@ -25,8 +25,9 @@ def clean_date_time(date_str):
                     try:
                         
                         data_corrigida = datetime(year=ano, month=mes, day=dia)
-                        print(f"Try fixing datetime: {data_corrigida}")
-                        return data_corrigida.strftime(formato) if not ':' in cleaned_date else data_corrigida.strftime(formato + " %H:%M")
+                        return data_corrigida
+                        # print(f"Try fixing datetime: {data_corrigida}")
+                        # return data_corrigida.strftime(formato) if not ':' in cleaned_date else data_corrigida.strftime(formato + " %H:%M")
                     except ValueError:
                         dia -= 1
                         if dia == 0:

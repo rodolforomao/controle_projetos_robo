@@ -13,7 +13,6 @@ import model.elements as elements
 import model.elements2 as elements2
 import model.excel as excel_class
 
-
 import util.file as file
 from csv import excel
 
@@ -22,6 +21,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 from urllib.parse import urlparse, parse_qs
@@ -116,23 +117,35 @@ def find_element_in_nested_iframes(driver, outer_iframe_id, inner_iframe_id = No
 
 def pesquisar(driver, list_document_sei):
     validation_list = {}
-    
+    countFileDownloaded = 0
     for index, row in list_document_sei.iterrows():
+        alreadyDownload = False
         numero_sei = row['SEI Number']
-        elements.sendKeys(numero_sei, driver, 'txtPesquisaRapida')
-        elements.sendKeys(Keys.ENTER, driver, 'txtPesquisaRapida')
-        element = find_element_in_nested_iframes(driver, 'ifrVisualizacao', 'ifrArvoreHtml', 'divArvoreAcoes')
-        list_document_sei.at[index, 'Validado'] = bool(element)
+        prefix = str(index) + '_' + numero_sei
+        if checkFileExist(prefix):
+            countFileDownloaded += 1
+            alreadyDownload = True
+        
+        element = None
+        if alreadyDownload == False:
+            elements.sendKeys(numero_sei, driver, 'txtPesquisaRapida')
+            elements.sendKeys(Keys.ENTER, driver, 'txtPesquisaRapida')
+            element = find_element_in_nested_iframes(driver, 'ifrVisualizacao', 'ifrArvoreHtml', 'divArvoreAcoes')
+            list_document_sei.at[index, 'Validado'] = bool(element)
 
-        if element:
+        if element or alreadyDownload:
             print('Disponível: '+ numero_sei + ' - :)')
             validation_list[index] = True
-            if config.DOWNLOAD_sei:
+            if config.DOWNLOAD_sei and alreadyDownload == False:
                 downloadFile(driver, numero_sei, index)
         else:
             validation_list[index] = False
             print('não dipsonível: '+ numero_sei)
     
+    if countFileDownloaded > 0:
+        print('Arquivo(s) que não precisou(aram) ser baixado(s): ' + str(countFileDownloaded))
+        print('Arquivo(s) baixado(s): ' + str(len(list_document_sei) - countFileDownloaded))
+        
     if config.VALIDACAO_SEI:
         excel_class.realizar_validacao_excel(list_document_sei, validation_list)
     
@@ -160,8 +173,15 @@ def findSubString(driver, page_source):
         
     return hashes
 
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+def checkFileExist(file):
+    target_dir = './files/sei_downloaded'
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+    existing_files = set(os.path.join(target_dir, f) for f in os.listdir(target_dir))
+    for existing_file in existing_files:
+        if file in existing_file:
+            return True
+    return False
 
 def downloadFile(driver, numero_sei, index):
     max_retries = 3
@@ -214,10 +234,17 @@ def checkDownloadFinished(file):
 
 def executar(list_documento_sei):
     driver = None
-    driver = logar(driver)
+    countFileDownloaded = 0
+    for index, row in list_documento_sei.iterrows():
+        numero_sei = row['SEI Number']
+        prefix = str(index) + '_' + numero_sei
+        if checkFileExist(prefix):
+            countFileDownloaded += 1
     
-    if driver:
-        pesquisar(driver, list_documento_sei)
+    if len(list_documento_sei) != countFileDownloaded:
+        driver = logar(driver)
+        if driver:
+            pesquisar(driver, list_documento_sei)
 
 def click_printer(driver, numero_sei, prefix):
     element = None
@@ -315,32 +342,49 @@ def click_printer(driver, numero_sei, prefix):
                     
                     time.sleep(interval)
                     elapsed_time += interval
+                
+                
+                max_wait_time = 5
+                elapsed_time = 0
+                interval = 0.5 
 
-                if save_as_hwnd:
-                    # download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
-                    # existing_files = set(os.listdir(download_dir))
-                    # tag = 'Sa&lvar'
-                    # autoit.find_window(tag)
-                    # autoit.click_button(save_as_hwnd, tag)
-                    # checkFileDownloaded(existing_files, prefix)
-                    download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
-                    existing_files = set(os.listdir(download_dir))
-                    tag = 'Sa&lvar'
-                    max_attempts = 3
+                while elapsed_time < max_wait_time:
+                    if save_as_hwnd:
+                        # download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+                        # existing_files = set(os.listdir(download_dir))
+                        # tag = 'Sa&lvar'
+                        # autoit.find_window(tag)
+                        # autoit.click_button(save_as_hwnd, tag)
+                        # checkFileDownloaded(existing_files, prefix)
+                        try:
+                            download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+                            existing_files = set(os.listdir(download_dir))
+                            tag = 'Sa&lvar'
+                            max_attempts = 3
 
-                    for attempt in range(max_attempts):
-                        autoit.find_window(tag)
-                        autoit.click_button(save_as_hwnd, tag)
-                        
-                        if checkFileDownloaded(existing_files, prefix):
-                            print("File downloaded successfully.")
-                            break
-                        else:
-                            print(f"Attempt {attempt + 1} failed. Retrying...")
-                            time.sleep(2)  # Optional: wait a bit before retrying
-                    else:
-                        print("File download failed after 3 attempts.")
+                            for attempt in range(max_attempts):
+                                autoit.find_window(tag)
+                                autoit.click_button(save_as_hwnd, tag)
+                                
+                                if checkFileDownloaded(existing_files, prefix):
+                                    print("File downloaded successfully.")
+                                    break
+                                else:
+                                    print(f"Attempt {attempt + 1} failed. Retrying...")
+                                    time.sleep(2)  # Optional: wait a bit before retrying
+                            else:
+                                print("File download failed after 3 attempts.")
+                        except Exception as e:
+                            print(f'Clicar em salvar: {e}')
+                            if checkFileDownloaded(existing_files, prefix):
+                                print("File downloaded successfully.")
+                                break
                     
+                    time.sleep(interval)
+                    elapsed_time += interval
+                    if checkFileDownloaded(existing_files, prefix):
+                        print("File downloaded successfully.")
+                        break
             
                 return True
             

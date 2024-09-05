@@ -1,16 +1,30 @@
 import re
 import math
 
+from datetime import datetime
 
 import config.config as config
 
 import model.db as db
 
+import model.cp_projeto as cp_projeto
+import model.cp_tipo_projeto as cp_tipo_projeto
+import model.tb_disciplinas_servicos as tb_disciplinas_servicos
+import model.tb_contrato_obra as tb_contrato_obra
+import model.cp_projeto_br as cp_projeto_br
+import model.cp_projeto_status as cp_projeto_status
+import model.cp_status as cp_status
+import model.cp_origem_destino as cp_origem_destino
+import model.cp_tipo as cp_tipo
+import model.cp_vinculo_excel_documento as cp_vinculo_excel_documento
+import model.cp_documento as cp_documento
+
+import model.pandas as pandas
+
 import util.data_frame as data_frame
 import util.string_format as string_format
 import util.sei as sei
 import util.datetime as datetime_class
-from datetime import datetime
 
 CONST_COLUMN_NUMERO_PROCESSO = 'Numero do Processo'
 CONST_COLUMN_ORIGEM = 'Origem'
@@ -21,125 +35,94 @@ CONST_COLUMN_NAME_RAP = 'RAP'
 
 CONST_ID_USUARIO_SUPRA = 3266
 
+
+    
 def migracao_dados(df, file):
-    numero_contrato = get_contract(file)
+    
+    
+    numero_processo_sei, id_contrato, id_origem, id_destino, id_tipo_documento = get_initials_parameters(df, file)
+    ################################
+    # EXTRAÇÃO DE DADOS
+    ################################
+   
+    insert_values = []
+    count = 0
+    lastRow = None
+            
+    for index, row in df.iterrows():
+        try:
+            # General parameters
+            row['id_contrato_obra'] = id_contrato
+            row['processo_sei'] = numero_processo_sei
+            row['origem'] = id_origem
+            row['destino'] = id_destino
+            row['id_tipo_documento'] = id_tipo_documento
+            id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row['DISCIPLINA'])
+            row['id_disciplina'] = id_disciplinas_servicos
+            row['id_tipo_projeto'] = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
+            data_encaminhamento = cp_documento.get_data_encaminhamento(row)
+            row['data'] = data_encaminhamento
+            
+            id_documento = cp_documento.checkInsertOrUpdate(row, df)
+            row['id_documento'] = id_documento
+            
+            if id_documento > 0:
+            #     #2 - INSERT CP_PROJETO
+                id_projeto = cp_projeto.checkInsertOrUpdate( row, lastRow)
+                row['id_projeto'] = id_projeto
+                    
+            #3 - INSERT CP_PROJETO_BR
+            if id_documento > 0 and id_projeto > 0:
+                id_projeto_br = cp_projeto_br.checkInsertOrUpdate(row)
+                row['id_projeto_br'] = id_projeto_br
+            
+            if id_documento > 0 and id_projeto > 0 and id_projeto_br > 0:
+            #4 - INSERT CP_PROJETO_STATUS
+                id_projeto_status = cp_projeto_status.checkInsertOrUpdate(row)
+                row['id_projeto_status'] = id_projeto_status
+                
+            if id_documento > 0 and id_projeto > 0 and id_projeto_br > 0 and id_projeto_status > 0:
+                cp_vinculo_excel_documento.checkInsert(row)
+                
+        except Exception as e:
+            print(f"Foreach: {e}")
+        lastRow = row
+        print(count)
+        count += 1
+    print('finalizando')
+
+    
+def get_initials_parameters(df, file):
+    ################################
+    # EXTRAÇÃO DE DADOS
+    ################################
+    
+    # número processo sei
     numero_processo_sei = extract_numero_processo(df)
 
-    id_contrato = db.get_supra_contrato(numero_contrato)
-    lista_origem_destino = db.get_supra_origem_destino()
-    lista_tipo_documento = db.get_supra_tipo_documento()
+    # id contrato obra
+    id_contrato = db.get_supra_contrato(get_contract(file))
     
-    id_usuario_supra = CONST_ID_USUARIO_SUPRA
 
     GET_FIRST_VALID_VALUE = True
-    id_origem = get_id_origem_destino(lista_origem_destino, data_frame.get_column(
+    id_origem = get_id_origem_destino(cp_origem_destino.get_db_all_items(), data_frame.get_column(
         df, CONST_COLUMN_ORIGEM, GET_FIRST_VALID_VALUE)),  # origem (ajuste conforme necessário)
     
     if isinstance(id_origem, tuple):
         id_origem = id_origem[0]
         
-    id_destino = get_id_origem_destino(lista_origem_destino, data_frame.get_column(
+    id_destino = get_id_origem_destino(cp_origem_destino.get_db_all_items(), data_frame.get_column(
         df, CONST_COLUMN_DESTINO, GET_FIRST_VALID_VALUE)),  # destino (ajuste conforme necessário)
     
     if isinstance(id_destino, tuple):
         id_destino = id_destino[0]
         
-    id_tipo_documento = get_id_tipo_documento(lista_tipo_documento, CONST_COLUMN_TIPO_DOCUMENTO)  # destino (ajuste conforme necessário)
+    id_tipo_documento = get_id_tipo_documento(cp_tipo.get_db_all_items(), CONST_COLUMN_TIPO_DOCUMENTO)  # destino (ajuste conforme necessário)
     
     if isinstance(id_tipo_documento, tuple):
         id_tipo_documento = id_tipo_documento[0]
-
-    insert_values = []
-    count = 0
-    for index, row in df.iterrows():
-        id_documento = row['ID']
-        fase = row['FASE']
-        disciplina = row['DISCIPLINA']
-        lote = row['LOTE']
-        versao = row['VERSÃO']
-        status = row['STATUS']
-        unidade = row['UNIDADE']
-        cronograma_aprov = row['CRONOGRAMA APROV.']
-        data_entrega = row['DATA DA ENTREGA']
-        protocolo = row['PROTOCOLO']
-        rap = row['RAP']
-        data_rap = row['DATA RAP']
-        termo_aceite = row['TERMO DE ACEITE']
-                
-        numero_sei = get_numero_sei(termo_aceite, rap)
-        try:
-            data_encaminhamento = data_rap if data_rap else data_entrega
-            if isinstance(data_encaminhamento, str):
-                data_encaminhamento = datetime_class.clean_date_time(data_encaminhamento)
-            if data_encaminhamento is not None:
-                if isinstance(data_encaminhamento, datetime):
-                    data_encaminhamento = data_encaminhamento.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    data_encaminhamento = None
-        except ValueError as e:
-            print(f"Invalid date: {e}")
-            
-            
-        assunto = data_frame.get_column(df, CONST_COLUMN_NUMERO_PROCESSO, GET_FIRST_VALID_VALUE)
-        observacao = get_observacao(row)
-        ultima_alteracao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        documento_sei = sei.get_sei_document(data_frame.get_column(df, CONST_COLUMN_NAME_RAP, GET_FIRST_VALID_VALUE))
-        publicar = 'S'
-        data_publicar = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        if check_exists(row):
-            continue
-        
-        # Montando os valores para o INSERT
-        insert_values.append(
-            (
-                id_contrato,
-                numero_sei,
-                data_encaminhamento,
-                id_origem,
-                id_destino,
-                assunto,
-                observacao,
-                id_usuario_supra,
-                ultima_alteracao,
-                id_tipo_documento,
-                numero_processo_sei,
-                documento_sei,
-                publicar,
-                data_publicar,
-                id_usuario_supra,
-            )
-        )
-
-        # Se atingiu 100 valores ou está no final do loop, realiza o insert
-        if len(insert_values) == 100 or count == len(df) - 1:
-            db.insert_query(insert_values)
-            
-        count += 1
-    print('')
-
-def check_exists(row):
-    print('')
-    return True
-
-
-
-def get_observacao(row):
-    observacao = ""
-    for column in row.index:
-        observacao += f"{column}: {row[column]}\n"
-    return observacao.strip()
-
-
-def get_numero_sei(termo_aceite, rap):
-    num_sei = get_sei_document(termo_aceite)
-    if num_sei is None:
-        num_sei = get_sei_document(rap)
-    return num_sei
-
-def get_sei_document(text):
-    return sei.get_sei_document(text)
-    
+    return numero_processo_sei, id_contrato, id_origem, id_destino, id_tipo_documento
 
 
 def get_contract(text):

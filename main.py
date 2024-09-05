@@ -2,6 +2,10 @@
 import controller.browser_util as browser_util
 import controller.principal as principal
 
+import model.webdriver as webdriver
+
+webdriver.verify_update_webdriver()
+
 repeat = True
 
 while repeat:

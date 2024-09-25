@@ -3,19 +3,37 @@ import model.db as db
 import util.string_format as string_format
 
 TABLE_NAME = 'tb_servicos'
-COLUMN_ID_CAME = 'id_contrato_obra'
 
 
-def get_br_from_contrato(id_contato_obra):
-    data = get_db_item_id(id_contato_obra)
+def get_br_from_contrato(id_cp_contato):
+    data = get_db_item_id(id_cp_contato)
     if len(data) > 0:
         for item in data:
             return item['br']
     return False
 
-def get_db_item_id(id_contato_obra):
+def get_db_item_id(id_cp_contato):
     query = '''
-            SELECT * FROM TB_CONTRATO_OBRA WHERE id_contrato_obra  = ''' + str(id_contato_obra) + '''
+             DECLARE @contrato varchar(max);
+
+            SELECT 
+                @contrato = contrato
+            FROM [SUPRA].[dbo].[cp_contrato]
+                WHERE id_cp_contrato = ''' + str(id_cp_contato) + '''
+                    select distinct * from
+                    (
+                                SELECT br
+                                FROM TB_CONTRATO_OBRA 
+                                WHERE contrato like '%' + @contrato + '%' 
+                                AND @contrato is not null
+
+                                UNION ALL
+
+                                SELECT TOP 1 rodovia br
+                                FROM tb_siac_segmento
+                                WHERE @contrato IS NOT NULL 
+                                AND contrato = @contrato
+                    ) tabela;
         '''
     return db.get_select_query(query)
 

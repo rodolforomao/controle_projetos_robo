@@ -19,7 +19,7 @@ def get_columns():
     return (
       'id_projeto',
       'id_status',
-      'id_contrato_obra',
+      'id_cp_contrato',
       'id_documento',
       'id_projeto_br',
       'id_usuario',
@@ -50,7 +50,7 @@ def insertCpProjetoStatus(row):
     values = (
             row['id_projeto'], # ,[id_projeto]
             id_status,# ,[id_status] -- nullable
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             row['id_documento'], # ,[id_documento]
             row['id_projeto_br'], # ,[id_projeto_br]
             supra.CONST_ID_USUARIO_SUPRA, # ,[id_usuario]
@@ -62,7 +62,7 @@ def insertCpProjetoStatus(row):
     
     # 'id_projeto',
     #   'id_status',
-    #   'id_contrato_obra',
+    #   'id_cp_contrato',
     #   'id_documento',
     #   'id_projeto_br',
     #   'publicar',
@@ -79,7 +79,7 @@ def updateCpProjetoStatus(row):
     values = (
             row['id_projeto'], # ,[id_projeto]
             id_status,# ,[id_status] -- nullable
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             row['id_documento'], # ,[id_documento]
             row['id_projeto_br'], # ,[id_projeto_br]
             supra.CONST_ID_USUARIO_SUPRA, # ,[id_usuario]
@@ -163,7 +163,7 @@ def checkChanged(values):
                         AND [id_status] = '""" + str(id_status) + """'
                         """
         query +=   """
-            and [id_contrato_obra] = '""" + str(values['id_contrato_obra']) + """'
+            and [id_cp_contrato] = '""" + str(values['id_cp_contrato']) + """'
             and [id_documento] = '""" + str(id_documento) + """'
             and [id_projeto_br] = '""" + str(id_projeto_br) + """'
         """

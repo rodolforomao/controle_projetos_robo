@@ -12,6 +12,7 @@ import model.supra as supra
 import model.db as db
 
 import util.string_format as string_format
+import util.recursive_verify as recursive_verify
 
 import config.config as config
 
@@ -24,7 +25,7 @@ def get_columns():
       'br',
       'km_inicial',
       'km_final',
-      'id_contrato_obra',
+      'id_cp_contrato',
       'id_usuario',
       'ultima_alteracao',
       'id_documento',
@@ -33,18 +34,17 @@ def get_columns():
       'id_usuario_nao_publicar',
     )
 
-
 def insertCpProjetoBr(row):
-    br = tb_contrato_obra.get_br_from_contrato(get_data.get_data_key(row,'id_contrato_obra'))
-    km_inicial = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_inicial'))
-    km_final = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_final'))
+    br = recursive_verify.get_data_key(row,'br')
+    km_inicial = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_inicial'))
+    km_final = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_final'))
 
     values = (
             row['id_projeto'], # ,[id_projeto]
             br, # ,[br]
             km_inicial, # ,[km_inicial]
             km_final, # ,[km_final]
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             supra.CONST_ID_USUARIO_SUPRA, # ,[id_usuario]
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'), # ,[ultima_alteracao]
             row['id_documento'],# ,[id_documento]
@@ -55,10 +55,12 @@ def insertCpProjetoBr(row):
     
     return db.insert_query_generic(TABLE_NAME, get_columns() ,values, COLUMN_ID)
   
+ 
 def updateCpProjetoBr(row):
-    br = tb_contrato_obra.get_br_from_contrato(row['id_contrato_obra'])
-    km_inicial = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_inicial'))
-    km_final = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_final'))
+    
+    br = recursive_verify.get_data_key(row,'br')
+    km_inicial = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_inicial'))
+    km_final = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_final'))
     
     id_projeto_br = row['id_projeto_br']
     
@@ -67,7 +69,7 @@ def updateCpProjetoBr(row):
             br, # ,[br]
             km_inicial, # ,[km_inicial]
             km_final, # ,[km_final]
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             supra.CONST_ID_USUARIO_SUPRA, # ,[id_usuario]
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'), # ,[ultima_alteracao]
             row['id_documento'],# ,[id_documento]
@@ -120,12 +122,13 @@ def checkExistsOrChanged(row,):
     return False, False, 0
   
   
-import util.recursive_verify as get_data
+
+
 def checkExists(row):
   id_documento = row['id_documento']
   id_projeto = row['id_projeto']
-  km_inicial = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_inicial'))
-  km_final = string_format.get_only_numbers_float(get_data.get_data_key(row,'km_final'))
+  km_inicial = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_inicial'))
+  km_final = string_format.get_only_numbers_float(recursive_verify.get_data_key(row,'km_final'))
   br = tb_contrato_obra.get_br_from_contrato(row['br'])
   
   query = """
@@ -139,6 +142,7 @@ def checkExists(row):
   
   return db.get_select_query(query)
 
+import model.cp_contrato as cp_contrato
 def checkChanged(values):
     try:
         conn = pyodbc.connect(
@@ -152,9 +156,10 @@ def checkChanged(values):
         
         id_documento = values['id_documento']
         id_projeto = values['id_projeto']
-        km_inicial = string_format.get_only_numbers_float(get_data.get_data_key(values,'km_inicial'))
-        km_final = string_format.get_only_numbers_float(get_data.get_data_key(values,'km_final'))
-        br = tb_contrato_obra.get_br_from_contrato(get_data.get_data_key(values,'id_contrato_obra'))
+        km_inicial = string_format.get_only_numbers_float(recursive_verify.get_data_key(values,'km_inicial'))
+        km_final = string_format.get_only_numbers_float(recursive_verify.get_data_key(values,'km_final'))
+        
+        br = recursive_verify.get_data_key(values,'br')
         
         cursor = conn.cursor()
         query = """

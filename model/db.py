@@ -1,6 +1,8 @@
 import pyodbc
 
 import model.db as db
+import model.cp_contrato as cp_contrato
+import util.query as queryUtil
 
 import config.config as config
 
@@ -178,7 +180,7 @@ def checkLineExists(values):
         query = """
             SELECT * FROM [cp_documento]
             WHERE 
-            id_contrato_obra = '""" + str(values["id_contrato_obra"]) +"""'
+            id_cp_contrato = '""" + str(values["id_cp_contrato"]) +"""'
             AND observacao = '""" + str(values["observacao"]) +"""'
             AND numero_sei = '""" + str(values["numero_sei"]) +"""'
             AND documento_sei = '""" + str(values["documento_sei"]) +"""'
@@ -200,33 +202,17 @@ def checkLineExists(values):
         conn.close()
         
 
+
+
+
+def getConfigConn():
+    return pyodbc.connect(db.get_connection_string(
+            config.supra_db['server'],
+            config.supra_db['db'],
+            config.supra_db['user'],
+            config.supra_db['pwd']
+        ))
     
-def get_supra_contrato(numero_contrato):
-    if numero_contrato:
-        try:
-            # Conectando ao banco de dados
-            conn = pyodbc.connect(db.get_connection_string(
-                config.supra_db['server'],
-                config.supra_db['db'],
-                config.supra_db['user'],
-                config.supra_db['pwd']
-            ))
-            cursor = conn.cursor()
 
-            # Executando um SELECT com parâmetros para evitar injeção de SQL
-            select_query = "SELECT id_contrato_obra as id FROM TB_CONTRATO_OBRA WHERE contrato LIKE ?"
-            cursor.execute(select_query, '%' + numero_contrato + '%')
 
-            # Obtendo o primeiro resultado
-            result = cursor.fetchone()
-            if result:
-                return result.id  # Retorna o ID
 
-        except pyodbc.Error as e:
-            print(f"Erro ao conectar ao banco de dados: {e}")
-
-        finally:
-            cursor.close()
-            conn.close()
-
-    return None

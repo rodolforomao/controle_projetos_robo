@@ -13,7 +13,7 @@ import model.elements as elements
 import model.elements2 as elements2
 import model.excel as excel_class
 
-import util.file as file
+import util.file as fileUtil
 from csv import excel
 
 from selenium import webdriver
@@ -115,14 +115,14 @@ def find_element_in_nested_iframes(driver, outer_iframe_id, inner_iframe_id = No
 
 
 
-def pesquisar(driver, list_document_sei):
+def pesquisar(driver, list_document_sei, file):
     validation_list = {}
     countFileDownloaded = 0
     for index, row in list_document_sei.iterrows():
         alreadyDownload = False
         numero_sei = row['SEI Number']
         prefix = str(index) + '_' + numero_sei
-        if checkFileExist(prefix):
+        if fileUtil.checkFileExist(prefix, file):
             countFileDownloaded += 1
             alreadyDownload = True
         
@@ -137,7 +137,7 @@ def pesquisar(driver, list_document_sei):
             print('Disponível: '+ numero_sei + ' - :)')
             validation_list[index] = True
             if config.DOWNLOAD_sei and alreadyDownload == False:
-                downloadFile(driver, numero_sei, index)
+                downloadFile(driver, numero_sei, index, file)
         else:
             validation_list[index] = False
             print('não dipsonível: '+ numero_sei)
@@ -147,7 +147,7 @@ def pesquisar(driver, list_document_sei):
         print('Arquivo(s) baixado(s): ' + str(len(list_document_sei) - countFileDownloaded))
         
     if config.VALIDACAO_SEI:
-        excel_class.realizar_validacao_excel(list_document_sei, validation_list)
+        excel_class.realizar_validacao_excel(list_document_sei, validation_list, file)
     
     return list_document_sei
 
@@ -173,17 +173,8 @@ def findSubString(driver, page_source):
         
     return hashes
 
-def checkFileExist(file):
-    target_dir = './files/sei_downloaded'
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
-    existing_files = set(os.path.join(target_dir, f) for f in os.listdir(target_dir))
-    for existing_file in existing_files:
-        if file in existing_file:
-            return True
-    return False
-
-def downloadFile(driver, numero_sei, index):
+import util.string_format as string_format
+def downloadFile(driver, numero_sei, index, file):
     max_retries = 3
     retry_count = 0
     
@@ -209,8 +200,12 @@ def downloadFile(driver, numero_sei, index):
                         new_file_name = new_files.pop() 
                         downloaded_file_path = os.path.join(download_dir, new_file_name)
                         try:
-                            target_path = os.path.join(target_dir, prefix + new_file_name)
-                            file.move(downloaded_file_path, target_path)
+                            numero_contrato = supra.get_contract(file)
+                            numero_contrato = string_format.normalizar_texto(numero_contrato)
+                            fullpath = os.path.join(target_dir, numero_contrato)
+                            fileUtil.checkAndCreateFolder(fullpath)
+                            target_path = os.path.join(fullpath, prefix + new_file_name)
+                            fileUtil.move(downloaded_file_path, target_path)
                             break
                         except Exception as e:
                             print(f"Attempt to move file again failed: {e}")
@@ -232,19 +227,23 @@ def downloadFile(driver, numero_sei, index):
 def checkDownloadFinished(file):
     return '.crdownload' not in str(file) and '.tmp' not in str(file) 
 
-def executar(list_documento_sei):
+import model.supra as supra
+import util.file as fileUtil
+
+def executar(list_documento_sei, file):
     driver = None
     countFileDownloaded = 0
+    
     for index, row in list_documento_sei.iterrows():
         numero_sei = row['SEI Number']
         prefix = str(index) + '_' + numero_sei
-        if checkFileExist(prefix):
+        if fileUtil.checkFileExist(prefix, file):
             countFileDownloaded += 1
     
     if len(list_documento_sei) != countFileDownloaded:
         driver = logar(driver)
         if driver:
-            pesquisar(driver, list_documento_sei)
+            pesquisar(driver, list_documento_sei, file)
 
 def click_printer(driver, numero_sei, prefix):
     element = None
@@ -282,30 +281,6 @@ def click_printer(driver, numero_sei, prefix):
         return True
     except Exception as e:
         print(f"Procura 1 - failed")
-                
-    # if element is None:
-    #     try:
-    #             element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
-    #                 EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href*='documento_imprimir_web'] img[alt='Imprimir Web']"))
-    #             )
-    #             element.click()
-            
-    #             return True
-            
-    #     except Exception as e:
-    #         print(f"Procura 2 - failed")
-            
-    # if element is None:
-    #     try:
-    #             element = WebDriverWait(driver, 1, poll_frequency=0.2).until(
-    #                  EC.element_to_be_clickable((By.XPATH, "//a[@href='controlador.php?acao=documento_imprimir_web&acao_origem=arvore_visualizar&id_documento=4708914&infra_sistema=100000100&infra_unidade_atual=110000130&infra_hash=332d12e08e1c47d3e9b3a10c8c670614ca900b5fd36150653a977a70d3248379']"))
-    #             )
-    #             element.click()
-            
-    #             return True
-            
-    #     except Exception as e:
-    #         print(f"Procura 4 - failed")
             
     if element is None:
         try:
@@ -350,12 +325,6 @@ def click_printer(driver, numero_sei, prefix):
 
                 while elapsed_time < max_wait_time:
                     if save_as_hwnd:
-                        # download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
-                        # existing_files = set(os.listdir(download_dir))
-                        # tag = 'Sa&lvar'
-                        # autoit.find_window(tag)
-                        # autoit.click_button(save_as_hwnd, tag)
-                        # checkFileDownloaded(existing_files, prefix)
                         try:
                             download_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
                             existing_files = set(os.listdir(download_dir))

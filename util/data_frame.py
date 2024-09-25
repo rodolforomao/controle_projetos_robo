@@ -1,3 +1,4 @@
+import pandas as pd
 import util.string_format as string_format
 
 def get_column(df, target_name, get_first_valid = False):
@@ -15,3 +16,10 @@ def get_column(df, target_name, get_first_valid = False):
     
     print(f"Column similar to '{target_name}' not found.")
     return None
+
+
+def is_row_empty(row, threshold=10):
+    row_series = pd.Series(row.values)
+    empty_columns = row_series[:threshold].isna() | (row_series[:threshold] == pd.NaT)
+    num_empty = empty_columns.sum()
+    return num_empty >= threshold

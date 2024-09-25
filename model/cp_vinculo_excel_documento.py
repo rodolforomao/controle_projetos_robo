@@ -19,7 +19,7 @@ def get_columns():
         'id_projeto',
         'id_projeto_br',
         'id_projeto_status',
-        'id_contrato_obra',
+        'id_cp_contrato',
         'id_origem',
         'id_destino',
         'identificador',
@@ -38,7 +38,7 @@ def insertCpVinculoExcelDocumento(row):
             row['id_projeto'],# [id_projeto]
             row['id_projeto_br'],#,[id_projeto_br]
             row['id_projeto_status'],#,[id_projeto_status]
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             row['origem'],#,[id_origem_destino]
             row['destino'],#,[id_origem_destino]
             id_line,
@@ -56,7 +56,7 @@ def verificarCpVinculoExcelDocumento(row):
   identificador = string_format.get_only_numbers(row['ID'])
   
   query = '''
-    SELECT * FROM '''  + TABLE_NAME + ''' WHERE id_contrato_obra = ''' + str(row['id_contrato_obra']) + ''' AND identificador = ''' + str(identificador) + '''
+    SELECT * FROM '''  + TABLE_NAME + ''' WHERE id_cp_contrato = ''' + str(row['id_cp_contrato']) + ''' AND identificador = ''' + str(identificador) + '''
   '''
   
   return db.get_select_query(query)

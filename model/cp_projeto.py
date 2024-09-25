@@ -6,6 +6,8 @@ import model.cp_tipo_projeto as cp_tipo_projeto
 import model.tb_disciplinas_servicos as tb_disciplinas_servicos
 import model.cp_vinculo_excel_documento as cp_vinculo_excel_documento
 import model.supra as supra
+import model.cp_documento as cp_documento
+import model.cp_disciplina_contrato as cp_disciplina_contrato
 
 from datetime import datetime
 
@@ -20,7 +22,7 @@ def get_columns():
         'id_disciplina',
         'data',
         'id_documento',
-        'id_contrato_obra',
+        'id_cp_contrato',
         'id_usuario',
         'ultima_alteracao',
         'publicar',
@@ -35,15 +37,16 @@ def get_db_all_items():
 def insertCpProjeto(row, lastRow):
 
     lastRow = None if lastRow is None else lastRow['FASE']
-    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
-    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row['DISCIPLINA'])
+    #id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
+    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row)
+    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row)
 
     values = (
             id_tipo_projeto, # [id_tipo_projeto] ************ CONVERTER EM ID
             id_disciplinas_servicos, # ,[id_disciplina]  ********** CONVERTER EM ID
             row['data'],# ,[data] = data_encaminhamento
             row['id_documento'], # ,[id_documento]
-            row['id_contrato_obra'], # ,[id_contrato_obra]
+            row['id_cp_contrato'], # ,[id_cp_contrato]
             supra.CONST_ID_USUARIO_SUPRA, # ,[id_usuario]
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'), # ,[ultima_alteracao]
             'S', # ,[publicar]
@@ -56,15 +59,16 @@ def insertCpProjeto(row, lastRow):
 
 def updateCpProjeto(row, lastRow):
     lastRow = None if lastRow is None else lastRow['FASE']
-    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
-    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row['DISCIPLINA'])
+    #id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
+    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row)
+    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row)
     id_projeto = row['id_projeto']
     values = (
             id_tipo_projeto,
             id_disciplinas_servicos,
             row['data'],
             row['id_documento'],
-            row['id_contrato_obra'],
+            row['id_cp_contrato'],
             supra.CONST_ID_USUARIO_SUPRA,
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'S',
@@ -76,8 +80,9 @@ def updateCpProjeto(row, lastRow):
     
 
 def checkExists(row, lastRow):
-    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
-    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row['DISCIPLINA'])
+    #id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row['FASE'], lastRow )
+    id_tipo_projeto = cp_tipo_projeto.get_id_tipo_projeto(row)
+    id_disciplinas_servicos = tb_disciplinas_servicos.get_id_tipo_disciplina(row)
     id_documento = row['id_documento']
     
     query = """
@@ -90,7 +95,6 @@ def checkExists(row, lastRow):
     return db.get_select_query(query)
 
 
-import model.cp_documento as cp_documento
 def checkInsertOrUpdate(row, lastRow):
     id_item = 0
     exists, changed, id_item = checkExistsOrChanged(row, lastRow)
@@ -105,6 +109,7 @@ def checkInsertOrUpdate(row, lastRow):
     row['data'] = cp_documento.get_data_encaminhamento(row)
     
     if insert_operation:
+        id_disciplina_contrato = cp_disciplina_contrato.checkAndInsert(row)
         id_item = insertCpProjeto(row, lastRow)
     else:
         row[COLUMN_ID] = id_item
@@ -164,7 +169,7 @@ def checkChanged(values):
             
         query += """
             AND id_documento = """ + str(values['id_documento']) + """
-            AND id_contrato_obra = """ + str(values['id_contrato_obra']) + """
+            AND id_cp_contrato = """ + str(values['id_cp_contrato']) + """
         """
         cursor.execute(query)
         result = cursor.fetchall()

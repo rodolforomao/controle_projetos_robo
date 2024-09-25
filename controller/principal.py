@@ -3,7 +3,7 @@ import model.excel as excel
 import model.sei as sei
 
 import model.supra as supra
-import model.files as files_class
+import util.file as files_class
 
 import config.config as config
 
@@ -21,7 +21,7 @@ def executar():
             if config.DOWNLOAD_sei or config.VALIDACAO_SEI:
                 list_documento_sei = excel.extrair_sei(file, False)
                 if list_documento_sei is not None and len(list_documento_sei) > 0:
-                    sei.executar(list_documento_sei)
+                    sei.executar(list_documento_sei, file)
                     # Adicionar informações no banco de dados, caso ela não exista
                 
     

@@ -16,6 +16,8 @@ def get_status_converting_status(value):
     precisao = 90 # aprovado != naoaprovado
     if string_format.get_item(value, [{ NAME_COLUMN: 'Aprovado'}],NAME_COLUMN, get_one, precisao):
         new_value = 'Termo de Aceite'
+    elif string_format.get_item(value, [{ NAME_COLUMN: 'Aprovado com ressalva'}],NAME_COLUMN, get_one, precisao):
+        new_value = 'Termo de Aceite'
     return get_status(new_value)
     
     

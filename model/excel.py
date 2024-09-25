@@ -1,3 +1,4 @@
+from pathlib import Path
 import re
 
 import pandas as pd
@@ -16,8 +17,15 @@ def extrair_sei(file_path_target = None, all_data = True):
         try:
             df = pd.read_excel(file_path, sheet_name='Tabela 1')
         except Exception as e:
-            print(f"Erro ao ler o arquivo: {e}")
-            return pd.DataFrame()
+            try:
+                df = pd.read_excel(file_path, sheet_name='Planilha 1')
+            except Exception as e:
+                try:
+                    df = pd.read_excel(file_path, sheet_name='Planilha1')
+                except Exception as e:
+                    print(f"Erro ao ler o arquivo: {e}")
+                    return pd.DataFrame()
+            
 
     if all_data:
         return df
@@ -30,6 +38,10 @@ def extrair_sei(file_path_target = None, all_data = True):
                 match = re.search(r'\b\d{7}\b', str(text))
                 if match:
                     return match.group()
+                else:
+                    match = re.search(r'\b\d{8}\b', str(text))
+                    if match:
+                        return match.group()
                 return None
             except Exception as e:
                 print(f"Erro na extração do SEI: {e}")
@@ -45,14 +57,18 @@ def extrair_sei(file_path_target = None, all_data = True):
     else:
         return pd.DataFrame()  # Retorna um DataFrame vazio se a coluna não existir
 
-def realizar_validacao_excel(df, dictionary):
+def realizar_validacao_excel(df, dictionary, file):
     
+    #workbook = load_workbook(file_path)
+    file_path = Path("./files/",file)
     workbook = load_workbook(file_path)
     
     if 'Table 1' in workbook.sheetnames:
         sheet = workbook['Table 1']
     elif 'Tabela 1' in workbook.sheetnames:
         sheet = workbook['Tabela 1']
+    elif 'Tabela 1' in workbook.sheetnames:
+        sheet = workbook['Planilha 1']
     else:
         print("Nenhuma planilha 'Table 1' ou 'Tabela 1' encontrada.")
         return

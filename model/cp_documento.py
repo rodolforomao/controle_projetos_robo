@@ -1,10 +1,13 @@
 import pyodbc
 import math
 from datetime import datetime
+import pandas as pd
 
 import util.data_frame as data_frame
 import util.datetime as datetime_class
 import util.sei as sei
+import util.query as queryUtil
+import util.recursive_verify as recursive_verify
 
 import model.db as db
 import model.cp_vinculo_excel_documento as cp_vinculo_excel_documento
@@ -32,11 +35,11 @@ def insert_query(insert_values):
             INSERT INTO [SUPRA].[dbo].["""+ TABLE_NAME +"""] 
             (
                 
-                [id_contrato_obra],
+                [id_cp_contrato],
                 [numero_sei],
                 [data_encaminhamento],
-                [origem],
-                [destino],
+                [id_origem],
+                [id_destino],
                 [assunto],
                 [observacao],
                 [id_usuario],
@@ -67,6 +70,8 @@ def insert_query(insert_values):
                 ? 
                 )
         """
+        
+        queryUtil.get_raw_query(insert_query, insert_values)
         cursor.execute(insert_query, insert_values)
         inserted_id = cursor.fetchone()[0] 
         conn.commit()
@@ -77,7 +82,7 @@ def insert_query(insert_values):
             cursor.close()
             conn.close()
             
-def update_query(values, id_documento):
+def update_query(values, id_documento, return_id_documento = False):
     try:
         conn = pyodbc.connect(db.get_connection_string(
             config.supra_db['server'],
@@ -91,11 +96,11 @@ def update_query(values, id_documento):
         query = """
             UPDATE [SUPRA].[dbo].["""+ TABLE_NAME +"""] 
             SET 
-                [id_contrato_obra] = ?,
+                [id_cp_contrato] = ?,
                 [numero_sei] = ?,
                 [data_encaminhamento] = ?,
-                [origem] = ?,
-                [destino] = ?,
+                [id_origem] = ?,
+                [id_destino] = ?,
                 [assunto] = ?,
                 [observacao] = ?,
                 [id_usuario] = ?,
@@ -115,6 +120,8 @@ def update_query(values, id_documento):
         if cursor.rowcount == -1:
             return id_documento
         else:
+            if return_id_documento:
+                return id_documento
             return cursor.rowcount
     except pyodbc.Error as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
@@ -123,7 +130,7 @@ def update_query(values, id_documento):
             cursor.close()
             conn.close()
             
-
+import util.query as queryUtil
 def checkChanged(values):
     try:
         conn = pyodbc.connect(
@@ -138,29 +145,20 @@ def checkChanged(values):
         query = """
             SELECT * FROM [""" + TABLE_NAME + """]
             WHERE 
-            id_contrato_obra = '""" + str(values["id_contrato_obra"]).replace("'", "''") +"""'
-            AND numero_sei = '""" + str(values["numero_sei"]).replace("'", "''") +"""'
+            id_cp_contrato = '""" + str(values["id_cp_contrato"]).replace("'", "''") +"""'
             """
-            
-        if values["data"] is None:
-            query +=  """    
-                AND data_encaminhamento is null 
-            """
-        else:
-            query +=  """    
-                AND data_encaminhamento = '""" + str(values["data"]).replace("'", "''") +"""'
-            """
-        query +=  """
-            
-            AND origem = '""" + str(values["origem"]).replace("'", "''") +"""'
-            AND destino = '""" + str(values["destino"]).replace("'", "''") +"""'
-            AND assunto = '""" + str(values['assunto']).replace("'", "''") +"""'
-            AND observacao = '""" + str(values['observacao']).replace("'", "''") +"""'
-            AND id_tipo = '""" + str(values['id_tipo_documento']).replace("'", "''") +"""'
-            AND processo_sei = '""" + str(values["processo_sei"]).replace("'", "''") +"""'
-            AND documento_sei = '""" + str(values["documento_sei"]).replace("'", "''") +"""'
-            
-        """
+        
+        query += queryUtil.checkIsNull('numero_sei', values)
+        query += queryUtil.checkIsNull("data", values, 'data_encaminhamento')
+        
+        query += queryUtil.checkIsNull("origem", values, 'id_origem')
+        query += queryUtil.checkIsNull("destino", values, 'id_destino')
+        query += queryUtil.checkIsNull("assunto", values)
+        query += queryUtil.checkIsNull("observacao", values)
+        query += queryUtil.checkIsNull("id_tipo_documento", values,"id_tipo")
+        query += queryUtil.checkIsNull("processo_sei", values)
+        query += queryUtil.checkIsNull("documento_sei", values)
+        
         cursor.execute(query)
         result = cursor.fetchall()
             
@@ -229,7 +227,7 @@ def checkInsertOrUpdate(row, df):
     
     # Montando os valores para o INSERT
     list_values = (
-            row['id_contrato_obra'],
+            row['id_cp_contrato'],
             numero_sei,
             data_encaminhamento,
             row['origem'],
@@ -250,9 +248,9 @@ def checkInsertOrUpdate(row, df):
     #if len(insert_values) == 100 or count == len(df) - 1:
     if insert_operation:
         id_documento = insert_query(list_values)
-        
     else:
-        id_documento = update_query(list_values, id_documento)
+        return_id_documento = True
+        id_documento = update_query(list_values, id_documento, return_id_documento)
             
     if type(id_documento) != str and type(id_documento) != int and math.isnan(assunto):
         return False
@@ -266,22 +264,40 @@ def get_observacao(row):
     return observacao.strip()
 
 
+
 def get_data_encaminhamento(row):
-    data_entrega = row['DATA DA ENTREGA']
-    data_rap = row['DATA RAP']
+    #data_entrega = row['DATA DA ENTREGA']
+    data_entrega = recursive_verify.get_data_key(row,'DATA DA ENTREGA')
+    if data_entrega is None:
+        useFuzzToCompare = True
+        data_entrega = recursive_verify.get_data_key(row,'DATA DA ENTREGA', useFuzzToCompare)
+    #data_rap = row['DATA RAP']
+    data_rap = recursive_verify.get_data_key(row,'DATA RAP')
+    if data_rap is None:
+        useFuzzToCompare = True
+        data_rap = recursive_verify.get_data_key(row,'DATA RAP', useFuzzToCompare, 85)
+    if data_entrega == '-':
+        data_entrega = None
+    if data_rap == '-':
+        data_rap = None
     data_encaminhamento = None
     try:
+        scapNextStep = False
         data_encaminhamento = data_rap if data_rap else data_entrega
         if isinstance(data_encaminhamento, str):
             data_encaminhamento = datetime_class.clean_date_time(data_encaminhamento)
-        if data_encaminhamento is not None:
-            if isinstance(data_encaminhamento, datetime):
+        if data_encaminhamento is not None :
+            if isinstance(data_encaminhamento, datetime) and data_encaminhamento is not pd.NaT:
                 data_encaminhamento = data_encaminhamento.strftime('%Y-%m-%d %H:%M:%S')
             if data_encaminhamento is None:
                 data_encaminhamento = None
+            if data_encaminhamento is pd.NaT:
+                data_encaminhamento = None
+                scapNextStep = True
                 
-        if type(data_encaminhamento) != str and math.isnan(data_encaminhamento):
-            data_encaminhamento = None
+        if scapNextStep == False:
+            if type(data_encaminhamento) != str and  math.isnan(data_encaminhamento):
+                data_encaminhamento = None
             
     except ValueError as e:
         print(f"Invalid date: {e}")

@@ -1,10 +1,27 @@
 import pandas as pd
+from rapidfuzz import fuzz, process
 
-def get_data_key(row, key):
-    km_inicial = row.get(key)
-    if km_inicial is not None:
-        return km_inicial
-    return None
+def get_data_key(row, key, fuzzy = False, ratio = 90):
+    
+    if fuzzy == True:
+        km_inicial = get_data_key_fuzzy(row,key, ratio)
+    else:
+        km_inicial = row.get(key)
+    
+    return km_inicial
+
+
+def get_data_key_fuzzy(row, correct_column, ratio = 90):
+    #matches = process.extractOne(correct_column, row.index, scorer=process.fuzz.ratio)
+    matches = process.extractOne(correct_column, row.index, scorer=fuzz.ratio)
+
+    if matches and matches[1] >= ratio:
+        best_match = matches[0]
+        value = row[best_match]
+    else:
+        value = None
+
+    return value
 
 
 def get_data_value(container, keys_or_indices):
